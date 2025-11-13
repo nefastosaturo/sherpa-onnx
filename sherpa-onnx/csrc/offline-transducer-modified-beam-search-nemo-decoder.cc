@@ -134,8 +134,20 @@ OfflineTransducerModifiedBeamSearchNeMoDecoder::Decode(
       std::vector<std::pair<float, NeMoHypothesis>> all_candidates;
 
       // Get encoder output for this utterance
-      Ort::Value encoder_out_i = Slice(allocator, &cur_encoder_out, i, i + 1);
-      // Shape: (1, encoder_dim)
+      Ort::Value encoder_out_slice = Slice(allocator, &cur_encoder_out, i, i + 1);
+      // Shape after slice: (1, encoder_dim)
+
+      // Get shape information to create 3D view
+      auto slice_shape = encoder_out_slice.GetTensorTypeAndShapeInfo().GetShape();
+      int64_t encoder_dim = slice_shape[1];
+
+      // Create 3D view with shape (1, encoder_dim, 1) for joiner
+      std::array<int64_t, 3> encoder_3d_shape{1, encoder_dim, 1};
+      float *encoder_data = encoder_out_slice.GetTensorMutableData<float>();
+
+      Ort::Value encoder_out_i = Ort::Value::CreateTensor(
+          memory_info, encoder_data, encoder_dim,
+          encoder_3d_shape.data(), encoder_3d_shape.size());
 
       // Process each hypothesis
       for (auto &hyp : cur[i]) {
@@ -164,9 +176,9 @@ OfflineTransducerModifiedBeamSearchNeMoDecoder::Decode(
         Ort::Value decoder_out = std::move(decoder_result.first);
         std::vector<Ort::Value> next_states = std::move(decoder_result.second);
 
-        // Run joiner
+        // Run joiner - use View for both since encoder_out_i is already correct shape
         Ort::Value logit = model_->RunJoiner(
-            Clone(allocator, &encoder_out_i),
+            View(&encoder_out_i),
             View(&decoder_out));
 
         float *p_logit = logit.GetTensorMutableData<float>();
