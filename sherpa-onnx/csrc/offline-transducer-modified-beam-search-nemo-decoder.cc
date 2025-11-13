@@ -78,6 +78,7 @@ OfflineTransducerModifiedBeamSearchNeMoDecoder::Decode(
   if (ss != nullptr) SHERPA_ONNX_CHECK_EQ(batch_size, n);
 
   int32_t vocab_size = model_->VocabSize();
+  int32_t blank_id = vocab_size - 1;  // NeMo models have blank at the end
 
   std::deque<std::vector<NeMoHypothesis>> finalized;
   std::vector<std::vector<NeMoHypothesis>> cur(batch_size);
@@ -102,7 +103,7 @@ OfflineTransducerModifiedBeamSearchNeMoDecoder::Decode(
     }
 
     NeMoHypothesis blank_hyp;
-    blank_hyp.ys = {0};  // Start with blank token
+    blank_hyp.ys = {blank_id};  // Start with blank token (last in vocab)
     blank_hyp.log_prob = 0.0f;
     blank_hyp.context_state = context_state;
     blank_hyp.allocator = allocator;
@@ -168,50 +169,76 @@ OfflineTransducerModifiedBeamSearchNeMoDecoder::Decode(
             decoder_input_length_shape.data(), decoder_input_length_shape.size());
 
         // Run decoder with current states
+        // Make a copy of states for non-blank expansions
+        std::vector<Ort::Value> decoder_states_copy;
+        decoder_states_copy.reserve(hyp.decoder_states.size());
+        for (const auto &state : hyp.decoder_states) {
+          decoder_states_copy.push_back(Clone(allocator, &state));
+        }
+
         auto decoder_result = model_->RunDecoder(
             std::move(decoder_input),
             std::move(decoder_input_length),
-            std::move(hyp.decoder_states));
+            std::move(decoder_states_copy));
 
         Ort::Value decoder_out = std::move(decoder_result.first);
         std::vector<Ort::Value> next_states = std::move(decoder_result.second);
 
-        // Run joiner - use View for both since encoder_out_i is already correct shape
+        // Run joiner
         Ort::Value logit = model_->RunJoiner(
             View(&encoder_out_i),
             View(&decoder_out));
 
         float *p_logit = logit.GetTensorMutableData<float>();
 
-        // Apply blank penalty
+        // Apply blank penalty (blank is at vocab_size - 1 for NeMo)
         if (blank_penalty_ > 0.0f) {
-          p_logit[0] -= blank_penalty_;  // blank is at index 0
+          p_logit[blank_id] -= blank_penalty_;
         }
 
         // Compute log softmax
         LogSoftmax(p_logit, vocab_size, 1);
 
-        // Create candidates for all possible tokens
-        for (int32_t token = 0; token < vocab_size; ++token) {
+        // Add log prob from current hypothesis
+        for (int32_t k = 0; k < vocab_size; ++k) {
+          p_logit[k] += hyp.log_prob;
+        }
+
+        // Get top-k token candidates to reduce work
+        // Use 2 * max_active_paths_ to have enough candidates
+        int32_t num_candidates = std::min(2 * max_active_paths_, vocab_size);
+        auto top_k_tokens = TopkIndex(p_logit, vocab_size, num_candidates);
+
+        // Create candidates only for top-k tokens
+        for (int32_t idx : top_k_tokens) {
+          int32_t token = idx;
           NeMoHypothesis new_hyp;
           new_hyp.ys = hyp.ys;
           new_hyp.timestamps = hyp.timestamps;
           new_hyp.context_state = hyp.context_state;
           new_hyp.allocator = allocator;
-          new_hyp.log_prob = hyp.log_prob + p_logit[token];
-
-          // Deep copy decoder states for this hypothesis
-          new_hyp.decoder_states.reserve(next_states.size());
-          for (const auto &state : next_states) {
-            new_hyp.decoder_states.push_back(Clone(allocator, &state));
-          }
+          new_hyp.log_prob = p_logit[token];  // Already includes hyp.log_prob
 
           float context_score = 0.0f;
 
-          // If not blank and not unk, add to sequence
-          if (token != 0 && token != unk_id_) {
+          // If blank token, keep old decoder states
+          // If non-blank token, use new decoder states
+          if (token == blank_id) {
+            // Blank: keep current decoder state, don't add token
+            new_hyp.decoder_states.reserve(hyp.decoder_states.size());
+            for (const auto &state : hyp.decoder_states) {
+              new_hyp.decoder_states.push_back(Clone(allocator, &state));
+            }
+          } else if (token != unk_id_) {
+            // Non-blank, non-unk: add to sequence and use updated states
             new_hyp.ys.push_back(token);
             new_hyp.timestamps.push_back(t);
+
+            // Deep copy decoder states for this hypothesis
+            new_hyp.decoder_states.reserve(next_states.size());
+            for (const auto &state : next_states) {
+              new_hyp.decoder_states.push_back(Clone(allocator, &state));
+            }
 
             // Update context graph
             if (context_graphs[i] != nullptr) {
@@ -221,11 +248,18 @@ OfflineTransducerModifiedBeamSearchNeMoDecoder::Decode(
               new_hyp.context_state = std::get<1>(context_res);
             }
             new_hyp.log_prob += context_score;
+          } else {
+            // unk_id: treat as blank
+            new_hyp.decoder_states.reserve(hyp.decoder_states.size());
+            for (const auto &state : hyp.decoder_states) {
+              new_hyp.decoder_states.push_back(Clone(allocator, &state));
+            }
           }
 
           all_candidates.emplace_back(new_hyp.log_prob, std::move(new_hyp));
         }
       }
+
 
       // Keep top-k hypotheses
       std::partial_sort(
