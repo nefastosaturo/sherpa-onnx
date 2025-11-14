@@ -1,3 +1,44 @@
+## 1.12.17
+
+* Fix releasing
+
+## 1.12.16
+
+* Support exporting SenseVoice and Paraformer to Ascend 310P3 NPU. (#2716)
+* Demo for no stream vad asr with flutter (#2705)
+* Fix crashing in Android KWS demo (#2719)
+* Add C++ API with ACL C API for SenseVoice ASR on Ascend NPU (#2728)
+* Allow up to 30 seconds ASR for sense-voice on Ascend NPU (#2729)
+* Fix compilation error for Ascend NPU (#2731)
+* docs: fix Flutter TTS macOS mirror link targets; fix speech-enhancement link typo (#2723)
+* Export models for Ascend910B2 (#2740)
+* Add C++ runtime for Paraformer on Ascend NPU. (#2741)
+* Expose ys probs to JNI, Kotlin and Java API (#2736)
+* Add CI for Ascend NPU (#2743)
+* Export models for CANN 8.2 (#2745)
+* Fix validating model config for Paraformer. (#2749)
+* Add cxx API for online punctuation models (#2759)
+* Export sense voice to qnn (#2760)
+* Export models to Ascend 910B3 (#2761)
+* Support MatchaTTS models for Chinese+English. (#2763)
+* Fix zipvoice. (#2764)
+* Support passing multiple lexicon files for matcha tts models. (#2765)
+* Begin to add qnn C API (#2766)
+* Add QnnConfig. (#2768)
+* Fix missing includes. (#2769)
+* Begin to export omnilingual-asr to sherpa-onnx (#2770)
+* Add C++ and Python API for Omnilingual ASR models. (#2772)
+* Add C API for Omnilingual ASR CTC models (#2773)
+* Add CXX API for Omnilingual ASR CTC models (#2774)
+* Add C# API for Omnilingual ASR CTC models (#2775)
+* Add Swift API for Omnilingual ASR CTC models (#2776)
+* Add Go API for Omnilingual ASR CTC models (#2778)
+* Add JavaScript (node-addon) API for Omnilingual ASR CTC models (#2780)
+* Add Dart API for Omnilingual ASR CTC models (#2779)
+* Add JavaScript (WebAssembly) API for Omnilingual ASR CTC models (#2781)
+* Add Pascal API for Omnilingual ASR CTC models (#2782)
+* Add Kotlin and Java API for Omnilingual ASR CTC models (#2783)
+
 ## 1.12.15
 
 * Exposing online punctuation model support in node-addon-api (#2609)
@@ -467,7 +508,7 @@
 * Fix: Prepend 0 to tokenization to prevent word skipping for Kokoro. (#1787)
 * Export Kokoro 1.0 to sherpa-onnx (#1788)
 * Add C++ and Python API for Kokoro 1.0 multilingual TTS model (#1795)
-* Add Java and Koltin API for Kokoro TTS 1.0 (#1798)
+* Add Java and Kotlin API for Kokoro TTS 1.0 (#1798)
 * Add Android demo for Kokoro TTS 1.0 (#1799)
 * Add C API for Kokoro TTS 1.0 (#1801)
 * Add CXX API for Kokoro TTS 1.0 (#1802)
@@ -507,7 +548,7 @@
 * Add Pascal API for Kokoro TTS models (#1724)
 * Add JavaScript API (node-addon) for Kokoro TTS models (#1725)
 * Add JavaScript (WebAssembly) API for Kokoro TTS models. (#1726)
-* Add Koltin and Java API for Kokoro TTS models (#1728)
+* Add Kotlin and Java API for Kokoro TTS models (#1728)
 * Update README.md for KWS to not use git lfs. (#1729)
 
 
