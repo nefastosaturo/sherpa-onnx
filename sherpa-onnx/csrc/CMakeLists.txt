@@ -25,6 +25,7 @@ set(sources
   keyword-spotter-impl.cc
   keyword-spotter.cc
   lodr-fst.cc
+  math.cc
   offline-canary-model-config.cc
   offline-canary-model.cc
   offline-ctc-fst-decoder-config.cc
@@ -131,6 +132,7 @@ set(sources
   ten-vad-model-config.cc
   ten-vad-model.cc
   text-utils.cc
+  timer.cc
   transducer-keyword-decoder.cc
   transpose.cc
   unbind.cc
@@ -180,7 +182,9 @@ list(APPEND sources
 )
 if(SHERPA_ONNX_ENABLE_RKNN)
   list(APPEND sources
+    ./rknn/context-blocking-queue-rknn.cc
     ./rknn/offline-sense-voice-model-rknn.cc
+    ./rknn/offline-paraformer-model-rknn.cc
     ./rknn/online-stream-rknn.cc
     ./rknn/online-transducer-greedy-search-decoder-rknn.cc
     ./rknn/online-transducer-modified-beam-search-decoder-rknn.cc
@@ -193,7 +197,7 @@ if(SHERPA_ONNX_ENABLE_RKNN)
 
 endif()
 
-if(SHERPA_ONNX_ENABLE_RKNN OR SHERPA_ONNX_ENABLE_ASCEND_NPU)
+if(SHERPA_ONNX_ENABLE_RKNN OR SHERPA_ONNX_ENABLE_ASCEND_NPU OR SHERPA_ONNX_ENABLE_QNN)
   list(APPEND sources
     ./rknn/offline-ctc-greedy-search-decoder-rknn.cc
   )
@@ -203,12 +207,15 @@ if(SHERPA_ONNX_ENABLE_ASCEND_NPU)
   list(APPEND sources
     ./ascend/offline-paraformer-model-ascend.cc
     ./ascend/offline-sense-voice-model-ascend.cc
+    ./ascend/offline-zipformer-ctc-model-ascend.cc
     ./ascend/utils.cc
   )
 endif()
 
 if(SHERPA_ONNX_ENABLE_QNN)
   list(APPEND sources
+    ./qnn/offline-sense-voice-model-qnn.cc
+    ./qnn/offline-zipformer-ctc-model-qnn.cc
     ./qnn/qnn-backend.cc
     ./qnn/qnn-model.cc
     ./qnn/utils.cc
@@ -715,6 +722,7 @@ if(SHERPA_ONNX_ENABLE_TESTS)
     transpose-test.cc
     unbind-test.cc
     utfcpp-test.cc
+    wave-reader-test.cc
   )
   if(SHERPA_ONNX_ENABLE_TTS)
     list(APPEND sherpa_onnx_test_srcs

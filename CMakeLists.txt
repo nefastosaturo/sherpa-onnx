@@ -14,7 +14,7 @@ project(sherpa-onnx)
 # Remember to update
 # ./CHANGELOG.md
 # ./new-release.sh
-set(SHERPA_ONNX_VERSION "1.12.17")
+set(SHERPA_ONNX_VERSION "1.12.18")
 
 # Disable warning about
 #
@@ -302,6 +302,10 @@ include(CheckIncludeFileCXX)
 
 if(SHERPA_ONNX_ENABLE_RKNN)
   add_definitions(-DSHERPA_ONNX_ENABLE_RKNN=1)
+endif()
+
+if(SHERPA_ONNX_ENABLE_QNN)
+  add_definitions(-DSHERPA_ONNX_ENABLE_QNN=1)
 endif()
 
 if(SHERPA_ONNX_ENABLE_ASCEND_NPU)
